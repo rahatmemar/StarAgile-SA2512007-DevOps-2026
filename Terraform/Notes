@@ -1,0 +1,410 @@
+
+Terraform
+========================================
+
+Install Terraform on lab:
+
+# wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+# echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+# sudo apt update && sudo apt install terraform
+
+====================================================
+
+Terraform Code is always written in the form of blocks:
+
+There are different types of blocks:
+Provider block
+Resource block
+Variable block
+Output block
+Association block
+Nested block
+Dynamic block
+Local block
+Provisioner block
+Module block
+
+
+
+
+Type of block “resourceName” “Unique BlockName” {
+      Desired infra Code
+}
+
+1st block is Provider block
+=================================================
+
+Example:
+
+provider "aws" {
+  region     = "us-west-2"
+  access_key = "my-access-key"
+  secret_key = "my-secret-key"
+}
+
+https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+
+
+Demo 1: Store AWS credentials in a shared credentials file and then use it in the TF config file.
+In this way your accesskey and secret key will not be exposed to the outside world.
+
+# apt-get update
+
+# apt-get install awscli -y
+
+# aws configure
+
+Give the valid access key
+
+Give the valid secret key
+
+Press enter, no need to give any region and format option
+To verify if the credentials have been set for aws
+
+# cat ~/.aws/credentials
+
+Now create the provider block for terraform:
+=====================================
+
+# mkdir myterraformfiles
+
+# cd myterraformfiles
+
+# vim aws_infra.tf
+
+
+provider "aws" {
+  region = "us-east-1"
+  shared_credentials_files =  ["~/.aws/credentials"]
+}
+
+Save the file and we will install aws provider plugin
+
+# terraform init
+
+Demo 3: Create the first resource to create EC2 server via terraform
+
+# vim aws_infra.tf
+
+
+Add this block of code
+
+resource "aws_instance" "myec2" {
+
+  ami           = "ami-02457590d33d576c3"
+  instance_type = "t2.micro"
+
+  tags = {
+    Name = "Instance1"
+  }
+}
+ 
+Save the file.
+
+# terraform validate
+
+# terraform plan
+
+# terraform  apply --auto-approve
+
+# terraform destroy --auto-approve
+
+
+Demo 3:
+==========================================
+
+Write a data block which will filter details and fetch AMI id from AWS
+
+The fetched Ami id will be present in terraform.tfstate
+Data block will not create any resource on AWS.
+It is just a block that will filter AWS ami data based on your inputs and fetch it
+
+Pass the fetched AMI ID form data block to aws_instance resource block.
+
+
+Add below code in the file
+
+# vim aws_infra.tf
+
+
+data "aws_ami" "myami" {
+
+most_recent      = true
+
+owners           = ["amazon"]
+
+ filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm*"]
+  }
+
+
+}
+
+
+resource "aws_instance" "myec2" {
+
+  ami           = data.aws_ami.myami.id
+  instance_type = "t2.micro"
+
+  tags = {
+    Name = "Instance1"
+  }
+
+
+# terraform apply --auto-approve
+
+Destroy a specific resource 
+# terraform destroy -target aws_instance.myec2
+=======================================
+Variables in Terraform:
+=======================================
+Variables are used to store any data
+In terraform variables are created using the variable block 
+A variable can store a single value or a list of values
+A variable block can be created with the TF config file or can be created in a separate file
+Syntax of variable block:
+=========================
+variable “name_variable” {
+default = “variable-value”
+}
+======================
+Demo:
+# sudo su -
+# apt-get update
+
+# apt-get install awscli -y
+
+# aws configure
+
+Give the valid access key
+
+Give the valid secret key
+
+Press enter, no need to give any region and format option
+To verify if the credentials have been set for aws
+
+# cat ~/.aws/credentials
+
+# mkdir myterraformfiles
+
+# cd myterraformfiles
+
+# vim variables.tf
+
+variable "region" {
+
+default = "us-east-1"
+
+}
+
+variable "credentials" {
+
+default = "~/.aws/credentials"
+
+}
+
+variable "instance_type" {
+
+default = "t2.micro"
+}
+
+variable "env" {
+
+default = "Dev"
+}
+
+
+Save the file
+# vim aws_infra.tf
+
+provider "aws" {
+  region = var.region
+  shared_credentials_files =  [var.credentials]
+}
+
+
+
+data "aws_ami" "myami" {
+
+most_recent      = true
+
+owners           = ["amazon"]
+
+ filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm*"]
+  }
+
+
+}
+
+
+resource "aws_instance" "myec2" {
+
+  ami           = data.aws_ami.myami.id
+  instance_type = var.instance_type
+
+  tags = {
+    Name = var.env
+  }
+}
+
+
+Save the file
+
+# terraform init
+
+# terraform apply 
+Variables
+
+Variables can be used to store any data
+Variables are created using a block called as variable block.
+This block can be written inside the configuration file or can be written in a separate file
+A variable will store a single value or a list of values
+A variable can have  an actual value and a default value.
+
+Variable block Example:
+
+variable “variableName” {
+default = “variable value”
+}
+
+
+
+Demo 1: variable with String
+
+
+# terraform destroy --auto-approve
+
+Create a new file with name as variables.tf
+# vim variables.tf
+
+variable "region" {
+ default = "us-east-1"
+
+}
+
+variable "instance_type"{
+
+default = "t2.micro"
+
+}
+
+variable "env" {
+default = "dev"
+}
+
+
+Now go to aws_infra.tf file. Replace values with variable 
+
+
+provider "aws" {
+  region     = var.region
+  shared_credentials_files = ["~/.aws/credentials"]
+}
+
+
+data "aws_ami" "myami" {
+
+most_recent      = true
+
+owners           = ["amazon"]
+
+ filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm*"]
+  }
+
+
+}
+
+
+resource "aws_instance" "myec2" {
+
+  ami           = data.aws_ami.myami.id
+  instance_type = var.instance_type
+
+  tags = {
+    Name = var.env
+  }
+}
+
+
+Save the file
+
+# terraform plan
+
+
+Demo 2: variable with List and variable with map
+
+# vim variables.tf
+
+variable "region" {
+default = "us-east-1"
+}
+
+variable "ports" {
+type = list(number)
+default = [80809,9090,80]
+}
+
+variable "instance" {
+type = map
+
+default = {
+
+"dev" = "t2.micro"
+"prod" = "t2.large"
+
+}
+
+}
+
+
+
+Demo 3: variable with object
+
+variable "ec2_object" {
+type = object ({
+ 
+aws_region = string
+aws_ami = string
+instance_type = list(string)
+instance_name = string
+
+   })
+
+default = {
+ aws_region = "us-east-1"
+aws_ami = "ami-0b09ffb6d8b58ca91"
+instance_type = ["t2.micro","t2.medium","t3.micro"]
+instance_name = "myinstance"
+
+}
+
+}
+
+provider "aws" {
+
+region = var.ec2_object.aws_region
+
+}
+
+
+
+
+resource "aws_instance" "myec2" {
+
+  ami           = var.ec2_object.aws_ami
+  instance_type = var.ec2_object.instance_type[0]
+
+  tags = {
+    Name = var.ec2_object.instance_name
+  }
+}
+
+
+# terraform plan
